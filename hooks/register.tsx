@@ -3,6 +3,8 @@ import type { EngineInterface, Register, Timer } from 'claude-code'
 
 import type { DeepseekBalance, DeepseekModel, DeepseekStatus } from '../types'
 import { isEffortChord, isSwitchChord } from './chord'
+import { effortFailureMessage, firstLine } from './messages'
+import { priceCountdown } from './pricing'
 
 // How often the model and balance are read again, in milliseconds. A turn's
 // end refreshes them too, so this only catches top-ups and outside changes.
@@ -37,6 +39,10 @@ const animation = atom(
   { plugin: 'deepseek-status', key: 'animation' } as const,
   0,
 )
+
+// The price countdown shows seconds, so the band is redrawn each second; this
+// atom carries the time it draws from.
+const now = atom({ plugin: 'deepseek-status', key: 'now' } as const, 0)
 
 type BalanceResponse = {
   is_available?: boolean
@@ -102,11 +108,6 @@ function providerUrl(baseUrl: string, path: string): string {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
-}
-
-function firstLine(text: string): string {
-  const line = text.trim().split('\n')[0] ?? ''
-  return line.length > 80 ? `${line.slice(0, 80)}…` : line
 }
 
 // `CLAUDE_EFFORT` is only in the environment of Bash children, not of the
@@ -438,6 +439,16 @@ async function refresh($: EngineInterface): Promise<void> {
   }
 }
 
+// The countdown resolves to seconds, so its time is read again each second.
+// The band is DeepSeek-only; elsewhere the tick costs one state read.
+async function tickNow($: EngineInterface): Promise<void> {
+  const value = await read($, status)
+  if (!value.isDeepseek) return
+
+  const at = await $.clock.now()
+  await update($, now, current => (current === at ? current : at))
+}
+
 // Switches the session's model and updates the setting. A listed id equal to
 // the current model's base keeps the current spelling, so `deepseek-flash[1m]`
 // stays 1M when reselected.
@@ -491,7 +502,7 @@ async function openEffort($: EngineInterface): Promise<void> {
     const result = await $.command.run({ command: 'effort' })
     text = result.text ?? ''
   } catch (error) {
-    $.ui.toast(`打开推理等级选择失败：${firstLine(errorMessage(error))}`)
+    $.ui.toast(effortFailureMessage(errorMessage(error)))
     return
   }
 
@@ -594,6 +605,15 @@ export const register: Register = on => {
     }
 
     ensureAnimationTimer($)
+
+    // Seed the price countdown before the first draw, then move it each
+    // second.
+    const startedAt = await $.clock.now()
+    await update($, now, () => startedAt)
+    $.clock.every(1000, () => {
+      void tickNow($)
+    })
+
     void refresh($)
     $.clock.every(REFRESH_MS, () => {
       void refresh($)
@@ -686,6 +706,7 @@ export const register: Register = on => {
     const isAnimated = value.isUltra || value.effort === 'max'
     const frame = isAnimated ? await read($, animation) : 0
     const colors = isAnimated ? ultraColors(frame) : null
+    const phase = priceCountdown(await read($, now))
     const { Box, Button, Text } = $.ui.resolve(e)
 
     return (
@@ -703,6 +724,10 @@ export const register: Register = on => {
           }
         >
           {balanceLine(value)}
+        </Text>
+        <Text dimColor> · </Text>
+        <Text color={phase.isOffPeak ? 'success' : 'warning'}>
+          {phase.text}
         </Text>
         <Text dimColor> · </Text>
         <Button

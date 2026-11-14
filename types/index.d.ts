@@ -33,6 +33,8 @@ declare module 'claude-code' {
       status: Shaped<DeepseekStatus>
       /** The Ultra animation's frame, 0 to 23. */
       animation: number
+      /** When the price countdown last ticked, in milliseconds since the epoch. */
+      now: number
     }
   }
 }

@@ -1,6 +1,8 @@
 import { expect, mock, test } from 'claude-code/testing'
 
 import { isEffortChord, isSwitchChord } from '../hooks/chord'
+import { effortFailureMessage } from '../hooks/messages'
+import { priceCountdown } from '../hooks/pricing'
 
 const BAND = {
   plugin: 'deepseek-status',
@@ -111,6 +113,47 @@ test('shows the model, balance and hints, with the model list hidden', async ($,
   }
 })
 
+test('shows the price countdown next to the balance, to the second', async ($, on) => {
+  providerMock(on)
+  on('session.model', () => ({ value: 'deepseek-flash[1m]' }))
+  // 2026-01-02 00:30 Beijing time: the off-peak window just opened.
+  const clock = mock.clock(on, { now: Date.UTC(2026, 0, 1, 16, 30, 0) })
+
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await clock.settle()
+
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /距峰时/ }))?.text).toBe(
+    '谷时 · 距峰时 08:00:00',
+  )
+
+  await clock.advance(1000)
+  expect((await ui.find({ type: 'Text', text: /距峰时/ }))?.text).toBe(
+    '谷时 · 距峰时 07:59:59',
+  )
+  await ui.unmount()
+})
+
+test('counts to the next peak or off-peak change, to the second', () => {
+  // Beijing time is UTC+8; these are the two changes, either side.
+  expect(priceCountdown(Date.UTC(2026, 0, 1, 16, 29, 59))).toEqual({
+    isOffPeak: false,
+    text: '峰时 · 距谷时 00:00:01',
+  })
+  expect(priceCountdown(Date.UTC(2026, 0, 1, 16, 30, 0))).toEqual({
+    isOffPeak: true,
+    text: '谷时 · 距峰时 08:00:00',
+  })
+  expect(priceCountdown(Date.UTC(2026, 0, 2, 0, 29, 59))).toEqual({
+    isOffPeak: true,
+    text: '谷时 · 距峰时 00:00:01',
+  })
+  expect(priceCountdown(Date.UTC(2026, 0, 2, 0, 30, 0))).toEqual({
+    isOffPeak: false,
+    text: '峰时 · 距谷时 16:00:00',
+  })
+})
+
 test('the model pane switches and closes on a press', async ($, on) => {
   providerMock(on)
 
@@ -165,6 +208,21 @@ test('opens the built-in effort picker from the effort button', async ($, on) =>
 
   expect(commands).toEqual(['effort'])
   await ui.unmount()
+})
+
+test('answers the post-Stop refusal in words the person can act on', () => {
+  expect(
+    effortFailureMessage(
+      'deepseek-status: $.command.run: the session was stopped and nobody has sent input since',
+    ),
+  ).toBe('会话已停止：先发送任意消息，或点击上方「推理」按钮')
+
+  expect(effortFailureMessage('command failed')).toBe(
+    '打开推理等级选择失败：command failed',
+  )
+  expect(effortFailureMessage('x'.repeat(100))).toBe(
+    `打开推理等级选择失败：${'x'.repeat(80)}…`,
+  )
 })
 
 test('colors the max level like the animation at max effort', async ($, on) => {

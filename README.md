@@ -5,7 +5,7 @@
 > 仅适用于通过 DeepSeek 的 Anthropic 兼容接口运行的 Claude Code。
 
 ```text
-模型 deepseek-flash[1m] (按shift+\切换) · 余额 ¥21.77 · 推理 max (shift+e)
+模型 deepseek-flash[1m] (按shift+\切换) · 余额 ¥21.77 · 谷时 · 距峰时 02:10:45 · 推理 max (shift+e)
 ```
 
 `max` 等级的文字颜色会像 Claude Code 推理界面里的火焰一样循环变化。
@@ -18,6 +18,7 @@
 
 - **当前模型**：读取会话主循环模型；用 `/model` 或本插件切换后自动同步。
 - **DeepSeek 余额**：调用 `GET https://api.deepseek.com/user/balance`，在会话启动、每 60 秒以及每个主回合结束后刷新；只显示非零币种。
+- **峰谷价格倒计时**：余额旁显示当前是峰时还是谷时，以及距下一次价格切换的倒计时，精确到秒。时段按北京时间（UTC+8）划分：00:30–08:30 为谷时，其余为峰时；定义在 `hooks/pricing.ts`，DeepSeek 调整时段时改那两个常量即可。
 - **推理等级**：显示实际生效等级（包含静默降级）；`max` 时文字颜色循环动画。
 - **模型切换**：空输入框按 `shift+\` 打开聚焦选择框，↑/↓ 选择，Enter 确认，Esc 取消；确认后关闭选择框并更新模型设置。
 - **推理等级切换**：空输入框按 `shift+e` 打开 Claude Code 自带的 `/effort` 界面。
