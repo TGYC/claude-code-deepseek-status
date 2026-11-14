@@ -1,0 +1,13 @@
+{
+  "name": "deepseek-status",
+  "description": "DeepSeek 模型、余额与推理等级的状态横幅。",
+  "owner": {
+    "name": "TGYC"
+  },
+  "plugins": [
+    {
+      "name": "deepseek-status",
+      "source": "./"
+    }
+  ]
+}

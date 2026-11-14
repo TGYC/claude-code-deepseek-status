@@ -1,0 +1,11 @@
+{
+  "name": "deepseek-status",
+  "version": "0.1.0",
+  "description": "在输入框上方显示当前模型与 DeepSeek 账户余额（仅 DeepSeek）。",
+  "author": {
+    "name": "TGYC",
+    "url": "https://github.com/TGYC"
+  },
+  "license": "MIT",
+  "types": "./types/index.d.ts"
+}
