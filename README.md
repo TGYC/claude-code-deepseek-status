@@ -84,7 +84,3 @@ mod 依次读取 `DEEPSEEK_API_KEY`、`ANTHROPIC_AUTH_TOKEN`、`ANTHROPIC_API_KE
 claude plugin validate .
 claude plugin test .
 ```
-
-## 许可证
-
-MIT。仓库创建时由 GitHub 添加 LICENSE 文件。
