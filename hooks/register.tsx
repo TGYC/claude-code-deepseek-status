@@ -510,12 +510,29 @@ async function toggleModelPane($: EngineInterface): Promise<void> {
     return
   }
 
-  await $.ui.open({
-    id: MODEL_PANE,
-    title: '切换模型',
-    focus: true,
-    closeOnEscape: true,
-    rows: 3,
+  // The edit dispatch holds the keys, so open after it settles. Ask a few
+  // times: the surface grants the keyboard only while the prompt is idle and
+  // empty, and re-opening the same id is how to ask again.
+  $.clock.after(10, () => {
+    void (async () => {
+      try {
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          await $.ui.open({
+            id: MODEL_PANE,
+            title: '切换模型',
+            focus: true,
+            closeOnEscape: true,
+            holdToasts: true,
+            rows: 3,
+          })
+          await $.clock.sleep(40)
+          const pane = (await $.ui.panes()).find(p => p.id === MODEL_PANE)
+          if (pane === undefined || pane.isFocused) return
+        }
+      } catch {
+        // The pane still opens, without the keyboard.
+      }
+    })()
   })
 }
 
@@ -716,7 +733,7 @@ export const register: Register = on => {
     return (
       <Box flexDirection="column">
         {value.models.length > 0 ? (
-          <Box gap={2}>
+          <Box flexDirection="column">
             {value.models.map((model, index) => {
               const isCurrent = index === currentIndex
 
@@ -744,7 +761,10 @@ export const register: Register = on => {
               : '正在加载模型列表…'}
           </Text>
         )}
-        <Text dimColor>←/→ 选择 · Enter 确认 · Esc 取消</Text>
+        {!e.props.isFocused && (
+          <Text dimColor>点击面板或按 ctrl+x tab 启用方向键</Text>
+        )}
+        <Text dimColor>↑/↓ 选择 · Enter 确认 · Esc 取消</Text>
       </Box>
     )
   })
